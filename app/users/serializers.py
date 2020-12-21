@@ -18,6 +18,18 @@ class UserSerializer(serializers.ModelSerializer):
             }
         }
 
+    def update(self, instance, validated_data):
+        """Update the authenticated user and sets the password correctly"""
+
+        # Remove the password to set using the set_password method
+        password = validated_data.pop('password', None)
+        user = super().update(instance, validated_data)
+        if password:
+            instance.set_password(password)
+
+        user.save()
+        return user
+
     def create(self, validated_data):
         """Create a new user with encrypted password and return it"""
 

@@ -8,6 +8,7 @@ User = get_user_model()
 
 CREATE_USER_URL = reverse('users:create')
 TOKEN_URL = reverse('users:token')
+USER_DETAIL_URL = reverse('users:detail')
 
 
 def create_user(**kwargs):
@@ -102,6 +103,12 @@ class PublicUserAPITests(TestCase):
 
         self.assertTokenNotCreated(payload)
 
+    def test_retrieve_user_unauthorized(self):
+        """Test that authentication is required for users"""
+
+        response = self.client.get(USER_DETAIL_URL)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def assertTokenNotCreated(self, payload):
         """Assert that the token won't be created for the given payload"""
 
@@ -112,5 +119,46 @@ class PublicUserAPITests(TestCase):
 
 
 class PrivateUserAPITests(TestCase):
-    """Test the user API (private)"""
-    pass
+    """Test the user API that requires authentication (private)"""
+
+    def setUp(self) -> None:
+        self.user = create_user(
+            email='test@test.com',
+            password='pass1234',
+            name='Test Name',
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_retrieve_profile_success(self):
+        """Test retrieving profile for logged in user"""
+
+        response = self.client.get(USER_DETAIL_URL)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {
+            'name': self.user.name,
+            'email': self.user.email,
+        })
+
+    def test_post_detail_now_allowed(self):
+        """Test that post requests are not allowed to the user detail api"""
+
+        response = self.client.post(USER_DETAIL_URL, {})
+        self.assertEqual(response.status_code,
+                         status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_update_user_profile(self):
+        """Test updating the user profile for authenticated user"""
+
+        payload = {
+            'name': 'new name',
+            'password': 'new password',
+        }
+
+        response = self.client.patch(USER_DETAIL_URL, payload)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.name, payload['name'])
+        self.assertTrue(self.user.check_password(payload['password']))
