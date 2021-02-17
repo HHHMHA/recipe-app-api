@@ -1,8 +1,8 @@
 from rest_framework import viewsets, mixins
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from .serializers import TagSerializer, IngredientSerializer
-from core.models import Tag, Ingredient
+from .serializers import TagSerializer, IngredientSerializer, RecipeSerializer
+from core.models import Tag, Ingredient, Recipe
 
 
 class BaseRecipeAttrViewSet(viewsets.GenericViewSet,
@@ -16,7 +16,8 @@ class BaseRecipeAttrViewSet(viewsets.GenericViewSet,
     def get_queryset(self):
         """Return objects for the current authenticated user only"""
 
-        return self.queryset.filter(user=self.request.user).order_by('-name')
+        qs = super(BaseRecipeAttrViewSet, self).get_queryset()
+        return qs.filter(user=self.request.user).order_by('-name')
 
     def perform_create(self, serializer):
         """Create a new object"""
@@ -36,3 +37,19 @@ class IngredientViewSet(BaseRecipeAttrViewSet):
 
     serializer_class = IngredientSerializer
     queryset = Ingredient.objects.all()
+
+
+class RecipeViewSet(viewsets.ModelViewSet):
+    """Manage Recipe in the database"""
+
+    serializer_class = RecipeSerializer
+    queryset = Recipe.objects.all()
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    # Must override because the old one order by name
+    def get_queryset(self):
+        """Retrieve the recipes for the authenticated user"""
+
+        qs = super(RecipeViewSet, self).get_queryset()
+        return qs.filter(user=self.request.user)
